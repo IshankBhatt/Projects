@@ -1,104 +1,53 @@
-var express         = require("express"),
-    app             = express(),
-    bodyParser      = require('body-parser'),
-    mongoose        = require('mongoose'),
-    Campground      = require("./models/campground")
+var express 	  = require("express"),
+	app 		  = express(),
+	bodyParser    = require("body-parser"),
+	mongoose 	  = require("mongoose"),
+	flash         = require("connect-flash"),
+	passport      = require("passport"),
+	LocalStrategy = require("passport-local"),
+	methodOverride= require("method-override"),
+	Campground    = require("./models/campground"),
+	Comment       = require("./models/comment"),
+	User          = require("./models/user"),
+	seedDB        = require("./seeds");
 
+//requiring routes
+var commentRoutes = require("./routes/comment"),
+	campgroundRoutes = require("./routes/campgrounds"),
+	indexRoutes      = require("./routes/index");
 
-mongoose.connect("mongodb://localhost:27017/yelpcamp", {useNewUrlParser: true, useUnifiedTopology: true});
+mongoose.connect("mongodb://localhost:27017/yelp_camp2", {useNewUrlParser: true, useUnifiedTopology: true});
 app.use(bodyParser.urlencoded({extended:true}));
 app.set("view engine","ejs");
+app.use(express.static(__dirname + "/public"));
+app.use(methodOverride("_method"));
+app.use(flash());
+//seedDB();
 
+//PASSPORT CONFIGURATION
+app.use(require("express-session")({
+	secret: "This is a secret",
+	resave: false,
+	saveUninitialized: false
+}));
 
+app.use(passport.initialize());
+app.use(passport.session());
+passport.use(new LocalStrategy(User.authenticate()));
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
 
-/*Campground.create({
-        name:"tehri",
-        image:"https://images.pexels.com/photos/1061640/pexels-photo-1061640.jpeg?auto=compress&cs=tinysrgb&h=350",
-        description:"kings live here"
-    },function(err,campground){
-        if(err){
-            console.log(err);
-        }
-        else{
-            console.log("New created");
-            console.log(campground);
-        }
-});*/
-
-/*var campgrounds=[
-    {name:"tehri",image:"https://images.pexels.com/photos/1061640/pexels-photo-1061640.jpeg?auto=compress&cs=tinysrgb&h=350"},
-    {name:"mussorie",image:"https://images.pexels.com/photos/221436/pexels-photo-221436.jpeg?auto=compress&cs=tinysrgb&h=350"},
-    {name:"chopta",image:"https://images.pexels.com/photos/803226/pexels-photo-803226.jpeg?auto=compress&cs=tinysrgb&h=350"},
-    {name:"tehri",image:"https://images.pexels.com/photos/1061640/pexels-photo-1061640.jpeg?auto=compress&cs=tinysrgb&h=350"},
-    {name:"mussorie",image:"https://images.pexels.com/photos/221436/pexels-photo-221436.jpeg?auto=compress&cs=tinysrgb&h=350"},
-    {name:"chopta",image:"https://images.pexels.com/photos/803226/pexels-photo-803226.jpeg?auto=compress&cs=tinysrgb&h=350"},
-    {name:"tehri",image:"https://images.pexels.com/photos/1061640/pexels-photo-1061640.jpeg?auto=compress&cs=tinysrgb&h=350"},
-    {name:"mussorie",image:"https://images.pexels.com/photos/221436/pexels-photo-221436.jpeg?auto=compress&cs=tinysrgb&h=350"},
-    {name:"chopta",image:"https://images.pexels.com/photos/803226/pexels-photo-803226.jpeg?auto=compress&cs=tinysrgb&h=350"}
-];*/
-
-
-app.get("/",function(req,res){
-    res.render("landing");
+app.use(function(req,res,next){
+	res.locals.currentUser = req.user;
+	res.locals.error = req.flash("error");
+	res.locals.success = req.flash("success");
+	next();
 });
 
-//INDEX -show all campgrounds
-app.get("/campgrounds",function(req,res){
-    //get campgrounds from db
-    Campground.find({},function(err,allCampgrounds){
-        if(err){
-            console.log(err);
-        }
-        else{
-            res.render("index",{campgrounds:allCampgrounds})
-        }
-    });
-    //res.render("campgrounds",{campgrounds:campgrounds});
-});
+app.use(indexRoutes);
+app.use("/campgrounds", campgroundRoutes);
+app.use("/campgrounds/:id/comments",commentRoutes);
 
-//NEW- show form to create new campground
-app.get("/campgrounds/new",function(req,res){
-    res.render("new")
-});
-
-
-//CREATE - add a new campground to DB
-app.post("/campgrounds",function(req,res){
-    //get data from form and add to campgraound array
-    var name = req.body.name;
-    var image = req.body.image;
-    var desc = req.body.description;
-    var newCamp = {name:name,image:image,description:desc};
-    //create a new camp and save to database
-    Campground.create(newCamp,function(err,newly){ 
-        if(err){
-            console.log(err);
-        }
-        else{
-            res.redirect("/campgrounds");
-        }
-    })
-    //campgrounds.push(newCamp);
-    //redirect back to campground page
-});
- 
-//SHOW-  shows infor about 1 camp
-app.get("/campgrounds/:id",function(req,res){
-    //find campground with provided id
-    Campground.findById(req.params.id,function(err,foundCampground){
-        if(err){
-            console.log(err);
-        }
-        else{
-            //render show template with that campground
-            res.render("show",{campground: foundCampground});
-        }
-    });
-    //render show template with that campground
-    //res.render("show");
-});
-
-
-app.listen(8000,function(){
-    console.log("The Yelpcamp Server has started");
+app.listen(3000,function(){
+	console.log("Yelp Camp has started");
 });
